@@ -4,22 +4,25 @@
 What is cuda-convnet?
 =====================
 
-  It is a fast C++/CUDA implementation of convolutional (or more
-  generally, feed-forward) neural networks. It can model arbitrary
-  layer connectivity and network depth. Any directed acyclic graph of
-  layers will do. Training is done using the back-propagation
-  algorithm.
+According to its website, `cuda-convnet` is "a fast C++/CUDA
+implementation of convolutional (or more generally, feed-forward)
+neural networks. It can model arbitrary layer connectivity and network
+depth. Any directed acyclic graph of layers will do. Training is done
+using the back-propagation algorithm."
+
+`cuda-convnet` has really `nice docs on its homepage
+<http://code.google.com/p/cuda-convnet/>`_.
 
 What is noccn for then?
 =======================
 
 `noccn` adds a few scripts and wraps existing `cuda-convnet` scripts
-to allow for defining parameters on the filesystem.  Scripts in
+to allow for defining more parameters on the filesystem.  Scripts in
 `noccn` will always refer to an `options.cfg` file that includes all
 the parameters usually passed to `cuda-convnet` scripts on the
 command-line.
 
-`noccn` is being developed but hasn't reached a stable version yet.
+`noccn` is being developed and hasn't reached a stable version yet.
 
 The options.cfg file
 --------------------
@@ -65,6 +68,11 @@ Here how an `options.cfg` file can look like::
   multiview-test = 1
   logreg-name = logprob
   write-preds = $HERE/preds-100-125.csv
+
+Such an `options.cfg` file is the first argument to every script in
+`noccn`.  `options.cfg` and arguments on the command-line can be
+combined, where arguments on the command-line will overrule those in
+the config file.
 
 The section ``[train]`` contains all the parameters for training
 (`ccn-train`).  Similarly, ``[show]`` has all the parameters for the
