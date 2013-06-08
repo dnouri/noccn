@@ -1,0 +1,10 @@
+.coverage
+noccn.egg-info
+
+bin/
+dist/
+include/
+lib/
+local
+
+*pyc
