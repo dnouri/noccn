@@ -6,3 +6,6 @@ Unreleased
 
 - In ccn-predict, No longer require the last layer to be called
   'logprob'.  (This can also be a 'sqdiff' or whatever.)
+
+- Add ccn-make-batches command that creates batches given a directory
+  with one folder per image class.

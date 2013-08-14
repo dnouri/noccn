@@ -7,7 +7,7 @@ version = '0.1-dev'
 here = os.path.abspath(os.path.dirname(__file__))
 try:
     README = open(os.path.join(here, 'README.rst')).read()
-    #CHANGES = open(os.path.join(here, 'CHANGES.txt')).read()
+    CHANGES = open(os.path.join(here, 'CHANGES.txt')).read()
 except IOError:
     README = CHANGES = ''
 
@@ -46,6 +46,7 @@ setup(name='noccn',
       ccn-predict = noccn.predict:console
       ccn-train = noccn.train:console
       ccn-show = noccn.show:console
+      ccn-make-batches = noccn.dataset:console
       """,
       extras_require={
           'testing': tests_require,
