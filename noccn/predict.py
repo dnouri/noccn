@@ -1,6 +1,7 @@
 import csv
 from multiprocessing import Process
 import sys
+import time
 
 import numpy as np
 
@@ -17,9 +18,12 @@ def make_predictions(net, data, labels, num_classes):
     preds = np.zeros((data.shape[1], num_classes), dtype=np.single)
     softmax_idx = net.get_layer_idx('probs', check_type='softmax')
 
+    t0 = time.time()
     net.libmodel.startFeatureWriter(
         [data, labels, preds], softmax_idx)
     net.finish_batch()
+    print "Predicted %s cases in %.2f seconds." % (
+        labels.shape[1], time.time() - t0)
 
     if net.multiview_test:
         #  We have to deal with num_samples * num_views
@@ -47,19 +51,24 @@ class PredictConvNet(convnet.ConvNet):
         num_classes = self.test_data_provider.get_num_classes()
         all_preds = np.zeros((0, num_classes), dtype=np.single)
         all_labels = np.zeros((0, 1), dtype=np.single)
+        all_metadata = []
         num_batches = len(self.test_data_provider.batch_range)
+        db = self.test_data_provider.batch_meta.get('metadata', {})
 
         for batch_index in range(num_batches):
-            data, labels = self.get_next_batch(train=False)[2]
+            epoch, batchnum, (data, labels) = self.get_next_batch(train=False)
             preds, labels = make_predictions(self, data, labels, num_classes)
             all_preds = np.vstack([all_preds, preds])
             all_labels = np.vstack([all_labels, labels.T])
+            if db:
+                ids = self.test_data_provider.get_batch(batchnum).get('ids')
+                all_metadata.extend([db[id] for id in ids])
 
-        self._predictions = all_preds, all_labels
+        self._predictions = all_preds, all_labels, all_metadata
         return self._predictions
 
     def write_predictions(self):
-        preds, labels = self.make_predictions()
+        preds, labels, md = self.make_predictions()
         preds = eval("preds[:, {}]".format(self.op_write_predictions_cols))
         preds = preds.reshape(preds.shape[0], -1)
 
@@ -78,7 +87,7 @@ class PredictConvNet(convnet.ConvNet):
         from sklearn.metrics import f1_score
         from sklearn.metrics import precision_recall_curve
 
-        y_pred_probas, y_true = self.make_predictions()
+        y_pred_probas, y_true, md = self.make_predictions()
         y_pred = y_pred_probas.argmax(1)
         y_pred_probas = y_pred_probas[:, 1]
         y_true = y_true.reshape(-1)
@@ -125,7 +134,7 @@ class PredictConvNet(convnet.ConvNet):
         return cls._option_parser
 
 
-def console():
+def console(net=PredictConvNet):
     cfg = sys.argv.pop(1)
     n_sections = len([s for s in get_sections(cfg) if s.startswith('predict')])
     for section in get_sections(cfg):
@@ -138,9 +147,9 @@ def console():
             if n_sections > 1:
                 p = Process(
                     target=run_model,
-                    args=(PredictConvNet, section, cfg),
+                    args=(net, section, cfg),
                     )
                 p.start()
                 p.join()
             else:
-                run_model(PredictConvNet, section, cfg)
+                run_model(net, section, cfg)

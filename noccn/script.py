@@ -17,6 +17,7 @@ def get_options(filename, section):
     options = {}
     for key, value in parser.items(section):
         value = value.replace('$HERE', dirname)
+        value = value.replace('$HOME', os.path.expanduser('~'))
         options[key] = value
 
     if 'include' in options:
@@ -47,7 +48,7 @@ def put_options(options_parser, opts_dict):
             option.set_value(value)
 
 
-def _resolve(dotted):
+def resolve(dotted):
     module, name = dotted.rsplit('.', 1)
     return getattr(__import__(module, globals(), locals(), [name], -1), name)
 
@@ -60,7 +61,7 @@ def handle_options(parser, section, cfg_filename):
         data.DataProvider.register_data_provider(
             data_provider,
             data_provider,
-            _resolve(data_provider),
+            resolve(data_provider),
             )
 
     put_options(parser, opts_dict)
@@ -85,7 +86,7 @@ def random_seed(seed):
     random.seed(seed)
 
 
-def run_model(model_cls, section, cfg_filename=None):
+def make_model(model_cls, section, cfg_filename=None):
     if cfg_filename is None:
         try:
             cfg_filename = sys.argv.pop(1)
@@ -102,5 +103,9 @@ def run_model(model_cls, section, cfg_filename=None):
     update_attrs_from_cfg(model, cfg, 'convnet')
     update_attrs_from_cfg(model.train_data_provider, cfg, 'dataprovider')
     update_attrs_from_cfg(model.test_data_provider, cfg, 'dataprovider')
+    return model
 
+
+def run_model(model_cls, section, cfg_filename=None):
+    model = make_model(model_cls, section, cfg_filename)
     model.start()
