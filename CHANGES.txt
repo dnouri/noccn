@@ -1,0 +1,8 @@
+Changelog
+=========
+
+Unreleased
+==========
+
+- In ccn-predict, No longer require the last layer to be called
+  'logprob'.  (This can also be a 'sqdiff' or whatever.)

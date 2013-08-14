@@ -13,9 +13,10 @@ class ConvNet(convnet.ConvNet):
         """Only save checkpoint if test error is better than
         previously seen.
         """
+        last_layer = self.layers[-1]['name']
         train_size = len(self.train_batch_range)
         train_mean = np.array(
-            [e[0]['logprob'][0] for e in
+            [e[0][last_layer][0] for e in
              self.train_outputs[-train_size:]]
             ).mean()
         print "Train error last %d batches: %.6f" % (train_size, train_mean)
@@ -24,8 +25,8 @@ class ConvNet(convnet.ConvNet):
         if self.has_var('best_test_error'):
             best_test_error = self.get_var('best_test_error')
             best_test_info = self.get_var('best_test_info')
-        
-        this_test_error = self.test_outputs[-1][0]['logprob'][0]
+
+        this_test_error = self.test_outputs[-1][0][last_layer][0]
         if best_test_error is None or this_test_error < best_test_error:
             self.set_var('best_test_error', this_test_error)
             self.set_var('best_test_info', '%d.%d: -%.2f%%' % (
@@ -56,7 +57,7 @@ class ConvNet(convnet.ConvNet):
             self.test_outputs += [self.get_test_error()]
             self.print_test_results()
         self.train()
-    
+
 
 def console():
     run_model(ConvNet, 'train')
