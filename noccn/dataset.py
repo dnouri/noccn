@@ -15,15 +15,23 @@ from noccn.script import random_seed
 from noccn.script import resolve
 
 
+N_JOBS = -1
 SIZE = (64, 64)
 
 
-def crop(im, max_width=500, max_height=500):
+def crop_to_square(im):
     width, height = im.size
-    border_width = (width - max_width) / 2
-    border_height = (height - max_height) / 2
-    return im.crop((border_width, border_height,
-                    max_width + border_width, max_height + border_height))
+    if width == height:
+        return im
+    a = min(width, height)
+    im = im.crop((
+        int(round((width - a) / 2.)),
+        int(round((height - a) / 2.)),
+        int(round(width - (width - a) / 2.)),
+        int(round(height - (height - a) / 2.)),
+        ))
+    assert im.size[0] == im.size[1]
+    return im
 
 
 def scale(im, size=SIZE):
@@ -38,7 +46,7 @@ def _process_item(creator, name):
 class BatchCreator(object):
     def __init__(self, batch_size=1000, channels=3, size=SIZE,
                  input_path='/tmp', output_path='/tmp',
-                 n_jobs=-1, **kwargs):
+                 n_jobs=N_JOBS, **kwargs):
         self.batch_size = batch_size
         self.channels = channels
         self.size = size
@@ -66,6 +74,8 @@ class BatchCreator(object):
             delayed(_process_item)(self, name)
             for name, label in names_and_labels
             )
+        names_and_labels = [v for (v, row) in zip(names_and_labels, rows)
+                            if row is not None]
         for id, (name, label) in enumerate(names_and_labels):
             ids_and_names.append((id, name))
 
@@ -107,12 +117,15 @@ class BatchCreator(object):
         return Image.open(name)
 
     def preprocess(self, im):
-        im = crop(im)
-        im = scale(im, size=self.size)
-        im = np.array(im)
-        im = im.T.reshape(self.channels, -1).reshape(-1)
-        im = im.astype(np.single)
-        return im
+        im_cropped = crop_to_square(im)
+        if (im_cropped.size[0] < self.size[0] or
+            im_cropped.size[1] < self.size[1]):
+            return None  # Image too small
+        im_scaled = scale(im_cropped, size=self.size)
+        im_data = np.array(im_scaled)
+        im_data = im_data.T.reshape(self.channels, -1).reshape(-1)
+        im_data = im_data.astype(np.single)
+        return im_data
 
     def process_item(self, name):
         try:
@@ -136,19 +149,25 @@ def find(root, pattern):
                 yield os.path.join(path, fname)
 
 
-def console():
-    cfg = get_options(sys.argv[1], 'dataset')
-    random_seed(int(cfg.get('seed', '42')))
+def _collect_filenames_and_labels(cfg):
     path = cfg['input-path']
     pattern = cfg.get('pattern', '*.jpg')
-
     filenames_and_labels = []
     for fname in find(path, pattern):
         label = os.path.basename(os.path.split(fname)[-2])
         filenames_and_labels.append((fname, label))
     random.shuffle(filenames_and_labels)
-    filenames_and_labels = np.array(filenames_and_labels)
+    return np.array(filenames_and_labels)
 
+
+def console():
+    cfg = get_options(sys.argv[1], 'dataset')
+    random_seed(int(cfg.get('seed', '42')))
+    path = cfg['input-path']
+
+    collector = resolve(
+        cfg.get('collector', 'noccn.dataset._collect_filenames_and_labels'))
+    filenames_and_labels = collector(cfg)
     creator = resolve(cfg.get('creator', 'noccn.dataset.BatchCreator'))
     create = creator(
         batch_size=int(cfg.get('batch-size', 1000)),
