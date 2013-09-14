@@ -9,3 +9,8 @@ Unreleased
 
 - Add ccn-make-batches command that creates batches given a directory
   with one folder per image class.
+
+- Add 'always-save' option to 'ccn-train' script.  This will save the
+  latest checkpoint regardless of whether there was an improvement
+  with the test score or not.
+

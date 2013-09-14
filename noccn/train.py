@@ -3,11 +3,13 @@ import sys
 import numpy as np
 
 from .ccn import convnet
+from .ccn import options
 from .script import run_model
 
 
 class ConvNet(convnet.ConvNet):
     give_up_epochs = 20
+    _option_parser = None
 
     def conditional_save(self):
         """Only save checkpoint if test error is better than
@@ -27,7 +29,8 @@ class ConvNet(convnet.ConvNet):
             best_test_info = self.get_var('best_test_info')
 
         this_test_error = self.test_outputs[-1][0][last_layer][0]
-        if best_test_error is None or this_test_error < best_test_error:
+        if (self.op_always_save or best_test_error is None or
+            this_test_error < best_test_error):
             self.set_var('best_test_error', this_test_error)
             self.set_var('best_test_info', '%d.%d: -%.2f%%' % (
                 self.epoch,
@@ -57,6 +60,21 @@ class ConvNet(convnet.ConvNet):
             self.test_outputs += [self.get_test_error()]
             self.print_test_results()
         self.train()
+
+    @classmethod
+    def get_options_parser(cls):
+        if cls._option_parser is not None:
+            return cls._option_parser
+
+        op = convnet.ConvNet.get_options_parser()
+        op.add_option("always-save", "op_always_save",
+                      options.BooleanOptionParser,
+                      "Always write savepoints, "
+                      "regardless of test err improvement",
+                      default=0)
+
+        cls._option_parser = op
+        return cls._option_parser
 
 
 def console():
