@@ -1,4 +1,4 @@
-`noccn` is a collection of wrappers around Alex Krizhevsky's
+noccn is a collection of wrappers around Alex Krizhevsky's
 `cuda-convnet <http://code.google.com/p/cuda-convnet/>`_.
 
 What is cuda-convnet?
@@ -16,13 +16,13 @@ using the back-propagation algorithm."
 What is noccn for then?
 =======================
 
-`noccn` adds a few scripts and wraps existing `cuda-convnet` scripts
-to allow for defining more parameters on the filesystem.  Scripts in
-`noccn` will always refer to an `options.cfg` file that includes all
-the parameters usually passed to `cuda-convnet` scripts on the
+noccn adds a few scripts and wraps existing `cuda-convnet` scripts to
+allow for defining more parameters on the filesystem.  Scripts in
+noccn will always refer to an `options.cfg` file that includes all the
+parameters usually passed to `cuda-convnet` scripts on the
 command-line.
 
-`noccn` is being developed and hasn't reached a stable version yet.
+noccn is being developed and hasn't reached a stable version yet.
 
 The options.cfg file
 --------------------
@@ -32,47 +32,46 @@ Here how an `options.cfg` file can look like::
   #!ini
   [DEFAULT]
   data-provider = convdata.CIFARDataProvider
-  include = $HERE/../options.cfg
+  include = $HERE/../defaults.cfg
 
   [train]
   layer-def = $HERE/layers.cfg
   layer-params = $HERE/layer-params.cfg
-  data-path = $HERE/batches/
-  save-path = $HERE/tmp/
-  train-range = 20-50
-  test-range = 1-9
-  convnet.give_up_epochs = 100
+  data-path = $HERE/../../batches/
+  train-range = 1-29
+  test-range = 30-40
+  save-path = $HERE/tmp
+  give-up-epochs = 200
 
   [show]
-  test-range = 1
+  test-range = 41-44
 
   [predict-test]
   train-range = 1
-  test-range = 1-9
+  test-range = 30-40
   report = 1
 
   [predict-valid]
   train-range = 1
-  test-range = 10-19
+  test-range = 41-44
   report = 1
 
   [predict-train]
   train-range = 1
-  test-range = 20-50
+  test-range = 1-8
   report = 1
+  # write-preds = $HERE/preds/preds-train.csv
+  # write-preds-cols = 1
 
-  [predict-100-125]
-  train-range = 1
-  test-range = 100-125
-  write-preds-cols = 1
-  multiview-test = 1
-  logreg-name = logprob
-  write-preds = $HERE/preds-100-125.csv
+  [dataset]
+  input-path = $HERE/../../images/
+  pattern = *.jpg
+  output-path = $HERE/../../batches/
 
-Such an `options.cfg` file is the first argument to every script in
-`noccn`.  `options.cfg` and arguments on the command-line can be
-combined, where arguments on the command-line will overrule those in
-the config file.
+The path to this `options.cfg` file is the first argument to every
+script in noccn.  `options.cfg` and arguments on the command-line can
+be combined, where arguments on the command-line will overrule those
+in the config file.
 
 The section ``[train]`` contains all the parameters for training
 (`ccn-train`).  Similarly, ``[show]`` has all the parameters for the
@@ -87,20 +86,70 @@ provider implementation that you want to use.  It may include a
 Scripts
 -------
 
-Scripts included in `noccn` resemble those found in `cuda-convnet`
-itself.  With the exception of `ccn-predict`, of which there's no
-equivalent in `cuda-convnet`.  `ccn-predict` is used to, given a
-pickled model and input batches, predict outputs to either generate a
-report (``report = 1``), or generate a CSV file with the predictions
-made (``write-preds = filename``).  When running the `ccn-predict`
-script, make sure you pass the model snapshot using the ``-f``
-argument on the command-line.
+A few of the scripts included in noccn wrap those found in
+`cuda-convnet` itself.  These are `ccn-train` and `ccn-show`.  Scripts
+that noccn itself adds are `ccn-predict` and `ccn-make-batches`.
 
-``ccn-train`` extends the train script in `cuda-convnet` to allow for
-saving a model snapshot only when it has achieved a lower error on the
-test set.  (The original script would save the state regardless of
-whether performance improved or not.)  You can also use
-``convnet.give_up_epochs = 100`` parameter to control after how many
-epochs without an improvement on the test error the train script
-should quit training.  These two features are particularly useful if
-you want to run a few model configurations unattended.
+Some scripts require that you point them to a model snapshot or a
+snapshot directory, using the `-f` argument.
+
+ccn-train
+~~~~~~~~~
+
+Using `ccn-train` is simple; just pass the path to the `options.cfg`
+file as defined above::
+
+  #!shell
+  bin/ccn-train models/01/options.cfg
+
+noccn's train script will only save a snapshot if there was an
+improvement in the test score.  If you want to store snapshots
+regardless of whether or not the test score improved, you can pass
+`always-save = 1`.
+
+The `convnet.give_up_epochs` argument defines after how many epochs
+without an improvement on the test score should we automatically stop
+the learning.  This is useful if you want to run a few parameters
+unattended.
+
+ccn-show
+~~~~~~~~
+
+During training, you can take a look at the network's performance, at
+random test samples and their predictions, and at the activations of
+the first layer in your network using the `ccn-show` script::
+
+  #!shell
+  bin/ccn-show models/01/options.cfg -f models/01/tmp/ConvNet__*/
+
+If you want to view a different convolutional layer, pass
+e.g. `--show-filters=conv2`.
+
+ccn-predict
+~~~~~~~~~~~
+
+The `ccn-predict` script prints out a classification report and a
+confusion matrix.  This gives you numbers to evaluate your network's
+performance::
+
+  #!shell
+  bin/ccn-predict models/01/options.cfg -f models/01/tmp/ConvNet__*/
+
+ccn-make-batches
+~~~~~~~~~~~~~~~~
+
+The `ccn-make-batches` script is a handy way to create input batches
+for use with `cuda-convnet` from a folder with images.  Within the
+folder that you point `ccn-make-batches` to (through the
+configuration's `[dataset]` section), you should have one folder per
+category, with JPEG images belonging to that category inside.  The way
+`ccn-make-batches` collects images can be configured through the
+`collector` argument (default:
+`noccn.dataset._collect_filenames_and_labels`).  The way input files
+are converted to data vectors can be overridden by passing in a
+different `creator` (default: `noccn.dataset.BatchCreator`).
+
+An example::
+
+  #!shell
+  bin/ccn-make-batches models/01/options.cfg
