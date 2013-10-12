@@ -1,3 +1,4 @@
+from collections import Counter
 import cPickle
 from fnmatch import fnmatch
 import os
@@ -7,8 +8,11 @@ import traceback
 
 import numpy as np
 from PIL import Image
+from PIL import ImageOps
+from PIL.ExifTags import TAGS
 from joblib import Parallel
 from joblib import delayed
+from sklearn.utils import shuffle as skshuffle
 
 from noccn.script import get_options
 from noccn.script import random_seed
@@ -31,6 +35,21 @@ def crop_to_square(im):
         int(round(height - (height - a) / 2.)),
         ))
     assert im.size[0] == im.size[1]
+    return im
+
+
+def fix_orientation(im):
+    exif = getattr(im, '_getexif', lambda: None)()
+    if exif is not None:
+        for tag, value in exif.items():
+            decoded = TAGS.get(tag, tag)
+            if decoded == 'Orientation':
+                if value == 3:
+                    im = im.rotate(180)
+                elif value == 6:
+                    im = im.rotate(270)
+                elif value == 8:
+                    im = im.rotate(90)
     return im
 
 
@@ -63,9 +82,7 @@ class BatchCreator(object):
         sys.stdout.write(d)
         sys.stdout.flush()
 
-    def __call__(self, names_and_labels):
-        labels_sorted = sorted(set(p[1] for p in names_and_labels))
-
+    def __call__(self, names_and_labels, shuffle=False):
         batches = []
         ids_and_names = []
         batch_size = self.batch_size
@@ -74,15 +91,21 @@ class BatchCreator(object):
             delayed(_process_item)(self, name)
             for name, label in names_and_labels
             )
+
         names_and_labels = [v for (v, row) in zip(names_and_labels, rows)
                             if row is not None]
         for id, (name, label) in enumerate(names_and_labels):
             ids_and_names.append((id, name))
-
         data = np.vstack([r for r in rows if r is not None])
+
+        if shuffle:
+            names_and_labels, ids_and_names, data = skshuffle(
+                names_and_labels, ids_and_names, data)
+
+        labels_sorted = sorted(set(p[1] for p in names_and_labels))
         labels = [labels_sorted.index(label)
                   for name, label in names_and_labels]
-        ids = [id for (id, fname) in ids_and_names[-batch_size:]]
+        ids = [id for (id, fname) in ids_and_names]
         data = self.preprocess_data(data)
 
         for batch_start in range(0, len(names_and_labels), batch_size):
@@ -117,12 +140,9 @@ class BatchCreator(object):
         return Image.open(name)
 
     def preprocess(self, im):
-        im_cropped = crop_to_square(im)
-        if (im_cropped.size[0] < self.size[0] or
-            im_cropped.size[1] < self.size[1]):
-            return None  # Image too small
-        im_scaled = scale(im_cropped, size=self.size)
-        im_data = np.array(im_scaled)
+        im_rotated = fix_orientation(im)
+        image = ImageOps.fit(im_rotated, self.size, Image.ANTIALIAS)
+        im_data = np.array(image)
         im_data = im_data.T.reshape(self.channels, -1).reshape(-1)
         im_data = im_data.astype(np.single)
         return im_data
