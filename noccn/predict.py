@@ -38,11 +38,13 @@ def make_predictions(net, data, labels, num_classes):
         labels = labels[0]
 
     return preds, labels
-    
+
 
 class PredictConvNet(convnet.ConvNet):
     _predictions = None
     _option_parser = None
+
+    csv_fieldnames = ''
 
     def make_predictions(self):
         if self._predictions is not None:
@@ -57,6 +59,8 @@ class PredictConvNet(convnet.ConvNet):
 
         for batch_index in range(num_batches):
             epoch, batchnum, (data, labels) = self.get_next_batch(train=False)
+            if data.shape[1] != labels.shape[1]:
+                data = data[:, :labels.shape[1]]
             preds, labels = make_predictions(self, data, labels, num_classes)
             all_preds = np.vstack([all_preds, preds])
             all_labels = np.vstack([all_labels, labels.T])
@@ -69,16 +73,23 @@ class PredictConvNet(convnet.ConvNet):
 
     def write_predictions(self):
         preds, labels, md = self.make_predictions()
-        preds = eval("preds[:, {}]".format(self.op_write_predictions_cols))
         preds = preds.reshape(preds.shape[0], -1)
 
         print "Predicted true: %.4f" % (
             np.where(preds > preds.max() / 2)[0].shape[0] /
             float(preds.shape[0]))
 
+        fieldnames = [
+            str(i) for i in range(self.test_data_provider.get_num_classes())]
+        fieldnames_extra = (self.csv_fieldnames or 'name').split(',')
+        fieldnames += fieldnames_extra
+
         with open(self.op_write_predictions_file, 'w') as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerows(preds)
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            for pred, label, m in zip(preds, labels, md):
+                record = dict(zip([str(i) for i in range(len(pred))], pred))
+                record.update(m)
+                writer.writerow(record)
 
     def report(self):
         from sklearn.metrics import auc_score
@@ -122,10 +133,6 @@ class PredictConvNet(convnet.ConvNet):
         op.add_option("write-preds", "op_write_predictions_file",
                       options.StringOptionParser,
                       "Write predictions to this file")
-        op.add_option("write-preds-cols", "op_write_predictions_cols",
-                      options.StringOptionParser,
-                      "Write these prediction columns",
-                      default=':')
         op.add_option("report", "op_report",
                       options.BooleanOptionParser,
                       "Do a little reporting?")
