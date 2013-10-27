@@ -1,6 +1,6 @@
-from collections import Counter
 import cPickle
 from fnmatch import fnmatch
+import operator
 import os
 import random
 import sys
@@ -9,7 +9,6 @@ import traceback
 import numpy as np
 from PIL import Image
 from PIL import ImageOps
-from PIL.ExifTags import TAGS
 from joblib import Parallel
 from joblib import delayed
 from sklearn.utils import shuffle as skshuffle
@@ -23,41 +22,6 @@ N_JOBS = -1
 SIZE = (64, 64)
 
 
-def crop_to_square(im):
-    width, height = im.size
-    if width == height:
-        return im
-    a = min(width, height)
-    im = im.crop((
-        int(round((width - a) / 2.)),
-        int(round((height - a) / 2.)),
-        int(round(width - (width - a) / 2.)),
-        int(round(height - (height - a) / 2.)),
-        ))
-    assert im.size[0] == im.size[1]
-    return im
-
-
-def fix_orientation(im):
-    exif = getattr(im, '_getexif', lambda: None)()
-    if exif is not None:
-        for tag, value in exif.items():
-            decoded = TAGS.get(tag, tag)
-            if decoded == 'Orientation':
-                if value == 3:
-                    im = im.rotate(180)
-                elif value == 6:
-                    im = im.rotate(270)
-                elif value == 8:
-                    im = im.rotate(90)
-    return im
-
-
-def scale(im, size=SIZE):
-    im.thumbnail(size, Image.ANTIALIAS)
-    return im
-
-
 def _process_item(creator, name):
     return creator.process_item(name)
 
@@ -65,7 +29,7 @@ def _process_item(creator, name):
 class BatchCreator(object):
     def __init__(self, batch_size=1000, channels=3, size=SIZE,
                  input_path='/tmp', output_path='/tmp',
-                 n_jobs=N_JOBS, **kwargs):
+                 n_jobs=N_JOBS, more_meta=None, **kwargs):
         self.batch_size = batch_size
         self.channels = channels
         self.size = size
@@ -76,6 +40,7 @@ class BatchCreator(object):
         if not os.path.exists(output_path):
             os.mkdir(output_path)
 
+        self.more_meta = more_meta or {}
         vars(self).update(**kwargs)  # O_o
 
     def dot(self, d='.'):
@@ -129,6 +94,8 @@ class BatchCreator(object):
         batches_meta['metadata'] = dict(
             (id, {'name': name}) for (id, name) in ids_and_names)
         batches_meta['data_mean'] = data.mean(axis=0)
+        batches_meta.update(self.more_meta)
+
         with open(os.path.join(self.output_path, 'batches.meta'), 'wb') as f:
             cPickle.dump(batches_meta, f, -1)
             self.dot()
@@ -140,9 +107,11 @@ class BatchCreator(object):
         return Image.open(name)
 
     def preprocess(self, im):
-        im_rotated = fix_orientation(im)
-        image = ImageOps.fit(im_rotated, self.size, Image.ANTIALIAS)
-        im_data = np.array(image)
+        """Takes an instance of what self.load returned and returns an
+        array.
+        """
+        im = ImageOps.fit(im, self.size, Image.ANTIALIAS)
+        im_data = np.array(im)
         im_data = im_data.T.reshape(self.channels, -1).reshape(-1)
         im_data = im_data.astype(np.single)
         return im_data
