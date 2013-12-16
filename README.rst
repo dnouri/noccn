@@ -101,10 +101,11 @@ Use `pip` to install `noccn` in a virtualenv::
   cd noccn
   bin/pip install path/to/noccn
 
-If you're on Debian or Ubuntu, you can install numpy and scipy like
-this::
+If you're on Debian or Ubuntu, you can install the required numpy and
+scipy like this::
 
-
+  #!shell
+   apt-get install python-numpy python-scipy
 
 Scripts
 -------
