@@ -28,12 +28,10 @@ def _process_item(creator, name):
 
 class BatchCreator(object):
     def __init__(self, batch_size=1000, channels=3, size=SIZE,
-                 input_path='/tmp', output_path='/tmp',
-                 n_jobs=N_JOBS, more_meta=None, **kwargs):
+                 output_path='/tmp', n_jobs=N_JOBS, more_meta=None, **kwargs):
         self.batch_size = batch_size
         self.channels = channels
         self.size = size
-        self.input_path = input_path
         self.output_path = output_path
         self.n_jobs = n_jobs
 
@@ -152,7 +150,6 @@ def _collect_filenames_and_labels(cfg):
 def console():
     cfg = get_options(sys.argv[1], 'dataset')
     random_seed(int(cfg.get('seed', '42')))
-    path = cfg['input-path']
 
     collector = resolve(
         cfg.get('collector', 'noccn.dataset._collect_filenames_and_labels'))
@@ -162,7 +159,6 @@ def console():
         batch_size=int(cfg.get('batch-size', 1000)),
         channels=int(cfg.get('channels', 3)),
         size=eval(cfg.get('size', '(64, 64)')),
-        input_path=path,
         output_path=cfg.get('output-path', '/tmp/noccn-dataset'),
         )
     create(filenames_and_labels)
