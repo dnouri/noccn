@@ -16,18 +16,25 @@ using the back-propagation algorithm."
 What is noccn for then?
 =======================
 
-noccn adds a few scripts and wraps existing `cuda-convnet` scripts to
-allow for defining more parameters on the filesystem.  Scripts in
-noccn will always refer to an `options.cfg` file that includes all the
-parameters usually passed to `cuda-convnet` scripts on the
-command-line.
+noccn helps you deal with cuda-convnet's many command-line parameters
+by allowing you to put them into a configuration file (usually
+`options.cfg`).  noccn also allows you to specify in your
+configuration file how you're building your data batches.  This way,
+you'll easily remember how exactly you ran your experiments, and how
+you got your results.
 
-noccn is being developed and hasn't reached a stable version yet.
+There is support for turning a list of folders containing images into
+batches.  The batch creation code can be extended with your own batch
+creator.
+
+noccn is fairly stable -- I use it quite a lot -- but it's still
+underdocumented.  A lot of the options will however just map to
+cuda-convnet's own.
 
 The options.cfg file
 --------------------
 
-Here how an `options.cfg` file can look like::
+Here's an example of an `options.cfg` file::
 
   #!ini
   [DEFAULT]
@@ -80,8 +87,24 @@ The section ``[train]`` contains all the parameters for training
 
 The section ``[DEFAULT]`` defines variables that are used for all
 other sections.  The ``data-provider`` is a dotted path to the data
-provider implementation that you want to use.  It may include a
-``include`` parameter to include shared parameters from another file.
+provider implementation that you want to use.  The default section may
+have an ``include`` parameter to include shared parameters from
+another file.
+
+Installation in a virtualenv
+----------------------------
+
+Use `pip` to install `noccn` in a virtualenv::
+
+  #!shell
+  virtualenv noccn --system-site-packages
+  cd noccn
+  bin/pip install path/to/noccn
+
+If you're on Debian or Ubuntu, you can install numpy and scipy like
+this::
+
+
 
 Scripts
 -------
