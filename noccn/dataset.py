@@ -130,7 +130,7 @@ class BatchCreator(object):
 
 
 def find(root, pattern):
-    for path, folders, files in os.walk(root):
+    for path, folders, files in os.walk(root, followlinks=True):
         for fname in files:
             if fnmatch(fname, pattern):
                 yield os.path.join(path, fname)
