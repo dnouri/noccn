@@ -12,7 +12,7 @@ except IOError:
     README = CHANGES = ''
 
 install_requires = [
-    'scikit-learn',
+    'joblib',
     ]
 
 tests_require = [

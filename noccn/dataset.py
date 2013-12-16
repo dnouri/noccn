@@ -11,7 +11,6 @@ from PIL import Image
 from PIL import ImageOps
 from joblib import Parallel
 from joblib import delayed
-from sklearn.utils import shuffle as skshuffle
 
 from noccn.script import get_options
 from noccn.script import random_seed
@@ -62,6 +61,7 @@ class BatchCreator(object):
         data = np.vstack([r for r in rows if r is not None])
 
         if shuffle:
+            from sklearn.utils import shuffle as skshuffle
             names_and_labels, ids_and_names, data = skshuffle(
                 names_and_labels, ids_and_names, data)
 
